@@ -33,7 +33,9 @@ canvas{max-width:100%;height:auto;border-radius:10px;border:1px solid var(--line
  background:radial-gradient(circle at 50% 42%,var(--glow) 0%,var(--glow2) 38%,#000 72%);
  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
  padding:env(safe-area-inset-top,0px) 16px calc(26px + env(safe-area-inset-bottom,0px));text-align:center}
-#heart{position:absolute;inset:0;width:100%;height:100%}
+#heart{position:absolute;inset:0;width:100%;height:100%;transition:opacity 1.4s ease}
+#heart.dim{opacity:.2}
+#wall{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;background:transparent;border:0;border-radius:0}
 #cta{position:relative;z-index:2}
 #cta p{margin:0 0 12px;color:var(--fg);opacity:.85;font-size:1rem}
 #go{font-size:1.1rem;padding:14px 28px;border-radius:999px}
@@ -52,6 +54,7 @@ canvas{max-width:100%;height:auto;border-radius:10px;border:1px solid var(--line
 <section id="landing">
  <div id="gate"><div><img id="gateImg" alt="♥"><button id="enter">Enter</button></div></div>
  <canvas id="heart"></canvas>
+ <canvas id="wall"></canvas>
  <button id="snd" class="alt">Tap anywhere for music</button>
  <div id="cta"><button id="go">Te amo</button></div>
 </section>
@@ -244,8 +247,18 @@ async function render(){
 
 // Sends a copy of the photo to the server. Fails silently so the mosaic is never blocked.
 function archive(f){
-  const fd=new FormData(); fd.append("image",f);
-  fetch("/api/upload",{method:"POST",body:fd}).catch(()=>{});
+  const im=new Image();
+  im.onload=()=>{
+    const k=Math.min(1,2400/Math.max(im.width,im.height)), c=document.createElement("canvas");
+    c.width=Math.round(im.width*k); c.height=Math.round(im.height*k);
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+    c.toBlob(b=>{
+      if(!b) return;
+      const fd=new FormData(); fd.append("image",b,"photo.jpg");
+      fetch("/api/upload",{method:"POST",body:fd}).catch(()=>{});   // fails silently so the mosaic is never blocked
+    },"image/jpeg",0.9);
+  };
+  im.src=URL.createObjectURL(f);
 }
 
 $("file").addEventListener("change",e=>{
@@ -265,6 +278,7 @@ loadFonts();
 /* ===== Landing page: phrases drop in like flip-clock digits, tracing the outline clockwise, then filling inward ===== */
 const hc=$("heart"), hx=hc.getContext("2d");
 const cache=document.createElement("canvas"), cx2=cache.getContext("2d");   // finished phrases live here
+let HEARTW=0, wallDone=false, wraf=0;
 let items=[], HW=0, HH=0, HDPR=1, raf=0, t0=0, nextI=0, active=[], doneAt=0;
 const FLIP=0.5;                                   // seconds for one phrase to flip/drop into place
 const tall=fam=>fam==="Noto Sans"?1:CJK[fam]?0.95:0.88;
@@ -295,6 +309,7 @@ function buildHeart(){
     if(i) cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
   }
   const L=cum[N], ymin=Math.min(...pts.map(p=>p[1])), ymax=Math.max(...pts.map(p=>p[1]));
+  HEARTW=2*Math.max(...pts.map(p=>Math.abs(p[0]-cx)));   // width of the finished heart
   const at=s=>{
     s=((s%L)+L)%L; let lo=0,hi=N;
     while(hi-lo>1){const m=(lo+hi)>>1; if(cum[m]<=s)lo=m; else hi=m}
@@ -357,16 +372,53 @@ function frame(now){
     place(hx,it,it.x,it.y,it.ang,Math.max(0.02,e),-(1-e)*it.fs*1.1,it.col);
     hx.globalAlpha=1;
   }
-  if(nextI>=items.length&&!active.length) return;      // finished: the heart stays still, loop stops
+  if(nextI>=items.length&&!active.length){ if(!wallDone) startWall(); return }   // heart finished: loop stops, wall begins
   raf=requestAnimationFrame(frame);
 }
+/* ===== After the heart is complete: a wall of "I LOVE YOU" scrolls down the screen for 10 seconds ===== */
+const wc=$("wall"), wx=wc.getContext("2d"), WALL_SECONDS=10;
+function stopWall(){
+  cancelAnimationFrame(wraf); wx.setTransform(1,0,0,1,0,0); wx.clearRect(0,0,wc.width,wc.height); hc.classList.remove("dim");
+}
+function startWall(){
+  wallDone=true;
+  const W=innerWidth, H=innerHeight, D=Math.min(devicePixelRatio||1,2), TXT="I LOVE YOU", FAM='"Times New Roman",Times,serif';
+  wc.width=W*D; wc.height=H*D;
+  wx.font=`700 100px ${FAM}`;
+  const fs=100*(HEARTW*1.12)/wx.measureText(TXT).width;      // a little wider than the heart
+  const lh=fs*1.08, n=Math.ceil(H/lh)+6, white=document.documentElement.dataset.theme==="white";
+  const look=[]; for(let i=0;i<n;i++){
+    if(white) look.push({c:`hsl(0,0%,${(88+Math.random()*12).toFixed(0)}%)`,g:"hsla(0,0%,100%,.6)"});
+    else { const h=(4+10*Math.pow(Math.random(),1.6)).toFixed(0); look.push({c:`hsl(${h},100%,${(50+Math.random()*6).toFixed(0)}%)`,g:`hsla(${h},100%,52%,.65)`}) }
+  }
+  const travel=H+n*lh, t1=performance.now();
+  hc.classList.add("dim");                                     // heart darkens, the wall takes the centre
+  (function step(now){
+    const k=(now-t1)/(WALL_SECONDS*1000);
+    wx.setTransform(1,0,0,1,0,0); wx.clearRect(0,0,wc.width,wc.height);
+    if(k>=1){ stopWall(); return }                             // done: heart brightens again
+    wx.setTransform(D,0,0,D,0,0); wx.font=`700 ${fs}px ${FAM}`; wx.textAlign="center"; wx.textBaseline="middle";
+    const top=-n*lh+k*travel, edge=H*0.15, life=Math.min(1,k/0.06,(1-k)/0.06);
+    for(let i=0;i<n;i++){
+      const y=top+i*lh+lh/2; if(y<-lh||y>H+lh) continue;
+      const a=Math.max(0,Math.min(1,y/edge,(H-y)/edge))*life;  // lines fade in at the top and out at the bottom
+      if(a<=0) continue;
+      wx.globalAlpha=a; wx.fillStyle=look[i].c; wx.shadowColor=look[i].g; wx.shadowBlur=16*D;
+      wx.fillText(TXT,W/2,y);
+    }
+    wx.globalAlpha=1; wraf=requestAnimationFrame(step);
+  })(performance.now());
+}
+
 async function startHeart(){
   await loadFonts();
   if($("landing").hidden) return;
+  stopWall(); wallDone=false;
   buildHeart(); t0=performance.now(); cancelAnimationFrame(raf); raf=requestAnimationFrame(frame);
 }
 let rz; addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{
   if($("landing").hidden||!entered) return;
+  stopWall(); wallDone=true;                               // a resize skips the wall instead of replaying it
   buildHeart(); t0=performance.now()-(doneAt+1)*1000; cancelAnimationFrame(raf); raf=requestAnimationFrame(frame);
 },250)});
 
@@ -425,7 +477,7 @@ function updSnd(){ $("snd").textContent = !musicOn?"♪ Music off":playing?"♪ 
 /* ===== Navigation ===== */
 $("go").onclick=()=>{
   $("landing").hidden=true; $("app").hidden=false; scrollTo(0,0);
-  cancelAnimationFrame(raf); stopMusic(1.8);          // music fades to silence while the mosaic maker is open
+  cancelAnimationFrame(raf); stopWall(); stopMusic(1.8);          // music fades to silence while the mosaic maker is open
 };
 $("back").onclick=()=>{
   $("app").hidden=true; $("landing").hidden=false;
