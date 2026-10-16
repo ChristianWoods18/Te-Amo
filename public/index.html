@@ -357,7 +357,7 @@ function buildHeart(){
   inner.sort((p,q)=>p.ring-q.ring||p.cw-q.cw);                               // ring by ring, each one clockwise
 
   // 3) timing: outline first (clockwise), then the inside
-  let tt=0.4; const step=Math.min(0.3,40/Math.max(1,inner.length)); inner.forEach(it=>{it.d=tt;tt+=step});
+  let tt=0.4; const step=Math.min(0.25,40/Math.max(1,inner.length)); inner.forEach(it=>{it.d=tt;tt+=step});
   items=outline.concat(inner); doneAt=tt+FLIP; nextI=0; active=[];
 }
 function frame(now){
@@ -377,7 +377,7 @@ function frame(now){
   raf=requestAnimationFrame(frame);
 }
 /* ===== After the heart is complete: a fast wall of "LOVE YOU" rolls down the screen for 10 seconds ===== */
-const wc=$("wall"), wx=wc.getContext("2d"), WALL_SECONDS=25, WALL_SPEED=17, WALL_SPEED_START=0;   // how long it plays, and how many lines per second pass the middle
+const wc=$("wall"), wx=wc.getContext("2d"), WALL_SECONDS=25, WALL_SPEED=14, WALL_SPEED_START=0;   // how long it plays, and how many lines per second pass the middle
 function stopWall(){
   cancelAnimationFrame(wraf); wx.setTransform(1,0,0,1,0,0); wx.clearRect(0,0,wc.width,wc.height); hc.classList.remove("dim");
 }
