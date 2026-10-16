@@ -357,7 +357,7 @@ function buildHeart(){
   inner.sort((p,q)=>p.ring-q.ring||p.cw-q.cw);                               // ring by ring, each one clockwise
 
   // 3) timing: outline first (clockwise), then the inside
-  let tt=0.4; const step=Math.min(0.29,40/Math.max(1,inner.length)); inner.forEach(it=>{it.d=tt;tt+=step});
+  let tt=0.4; const step=Math.min(0.295,40/Math.max(1,inner.length)); inner.forEach(it=>{it.d=tt;tt+=step});
   items=outline.concat(inner); doneAt=tt+FLIP; nextI=0; active=[];
 }
 function frame(now){
