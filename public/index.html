@@ -377,7 +377,7 @@ function frame(now){
   raf=requestAnimationFrame(frame);
 }
 /* ===== After the heart is complete: a fast wall of "LOVE YOU" rolls down the screen for 10 seconds ===== */
-const wc=$("wall"), wx=wc.getContext("2d"), WALL_SECONDS=10, WALL_SPEED=20, WALL_SPEED_START=0;   // how long it plays, and how many lines per second pass the middle
+const wc=$("wall"), wx=wc.getContext("2d"), WALL_SECONDS=15, WALL_SPEED=20, WALL_SPEED_START=0;   // how long it plays, and how many lines per second pass the middle
 function stopWall(){
   cancelAnimationFrame(wraf); wx.setTransform(1,0,0,1,0,0); wx.clearRect(0,0,wc.width,wc.height); hc.classList.remove("dim");
 }
